@@ -6,76 +6,50 @@ import random as rnd
 import math
 import csv
 import matplotlib.pyplot as plt
+
+class Candidate(object):
+	
+	def __init__(self, K):
+		self.genome  	= np.random.uniform( low = -1.0, high = 1.0, size = (K,K) )
+		
+		self.fit 		= 0;
+
 class Genetic(object):
 
-	def __init__(self, size):
+	def __init__(self, size, _N, _K, _tN):
 		self.size = size
-		#self.N = 4
-		#self.K = 3
+		
+		self.N 		= _N
+		self.K 		= _K
+		self.testN 	= _tN
+		self.testK  = _K
+		
+		self.inputs  	 = []
+		self.outputs 	 = []
+		self.testInputs  = []
+		self.testOutputs = []
+		
 		self.parents = []
 		self.inputs = [];
 		self.outputs = [];
-		self.readFromFile();
-	def readFromFile(self):
+		
+		
+	def setInputsOutputs(self, _inputs, _outputs):
+		self.inputs  = _inputs
+		self.outputs = _outputs
 
-		ifile = open('C:\\Users\\Edgar\\Desktop\\dyplomowa\\inputs.csv')
-		reader = csv.reader(ifile, delimiter = ',')
-		 
-		rownum = 0
-		for row in reader:
-		# Save header row.
-			if not rownum ==0:
-				colnum = 0
-				if colnum > 77:
-					break
-				for col in row:
-					if colnum > 77:
-						break
-					self.inputs[colnum].append([float(col)])
-					colnum += 1
-			else:
-				for col in row:
-					self.inputs.append([])	
-			rownum += 1
-		self.N = colnum;
-		self.K = rownum-1;
-		
-		ifile.close()
-		
-		ifile = open('C:\\Users\\Edgar\\Desktop\\dyplomowa\\outputs.csv')
-		reader = csv.reader(ifile, delimiter = ',')
-		 
-		rownum = 0
-		for row in reader:
-		# Save header row.
-			if not rownum ==0:
-				colnum = 0
-				for col in row:
-					if colnum > 77:
-						break
-					self.outputs[colnum].append([float(col)])
-					colnum += 1
-			else:
-				for col in row:
-					self.outputs.append([])	
-			rownum += 1
-		self.N = colnum;
-		self.K = rownum-1;
-		ifile.close()
 	
-	def reset_weights(self):
+	def setTestInputsOutputs(self,  _inputs, _outputs):
+		self.testInputs  = _inputs
+		self.testOutputs = _outputs
+	
+	def setWeights(self, population):
 		# Sets all weights to random values
 		for i in range(self.size):
-			p = np.random.uniform( low = -1.0, high = 1.0, size = (self.K, self.K) ) 
-			self.parents.append((p,self.fitness(p)))
+			self.parents.append((population[i],self.fitness(population[i])))
 		self.children = [];
-	'''
-	def reset_weights(self):
-		# Sets all weights to random values
-		for i in range(self.size):
-			p = np.random.rand(3,3) * 2 - 1  
-			self.parents.append((p,self.fitness(p)))
-		self.children = [];'''
+	
+	
 	
 	def fitness(self, M):
 		err = 0;
@@ -101,14 +75,14 @@ class Genetic(object):
 		x_new = []
 		y_new = []
 		i = 0;
-		while i < self.K**2 - 2:
-			x_new.append(x[i])
-			x_new.append(y[i+1]);
-			y_new.append(y[i]);
-			y_new.append(x[i+1]);
-			i += 2
-		x_new.append(x[8])
-		y_new.append(y[8]);	
+		while i < self.K**2:
+			if i % 2 == 0:
+				x_new.append(x[i])
+				y_new.append(y[i])
+			else:
+				x_new.append(y[i])
+				y_new.append(x[i])
+			i += 1
 		x_new = self.mutation(x_new, 0.25)
 		y_new = self.mutation(y_new, 0.25)
 		return (x_new, y_new)		
@@ -130,16 +104,10 @@ class Genetic(object):
 
 		
 	def mutation(self, M, prob):
-			# Mutate (i.e. change) each bit in individual x with given probabipity.
-		'''if rnd.randint(0,100)/100 < prob:
-			x = rnd.randint(0, self.K**2 - 1)
-			y = rnd.randint(0, self.K**2 - 1)
-			while x == y:
-				y = rnd.randint(0, self.K**2 - 1)
-			M[x], M[y] = M[y], M[x]'''	
+		
 		for i in range(self.K**2):
 			if rnd.randint(0,100)/100 < prob:
-				M[i] = 1/(1+exp(-M[i]))
+				M[i] = np.random.uniform( low = -1.0, high = 1.0 )
 		return M
 	def randoms(self, size):
 		self.ranoms = []
@@ -147,15 +115,18 @@ class Genetic(object):
 			p = np.random.uniform( low = -1.0, high = 1.0, size = (self.K, self.K) )
 			self.ranoms.append((p,self.fitness(p)))
 	def calc(self, eras):
+		
 		era = 0;
-		self.reset_weights()
 		bestCosts = [];
 		lastBest = 999;
 		forBreak = 0;
+		
 		while era < eras:
 			era += 1
 			self.parents = sorted(self.parents, key = lambda fit: fit[1]);
 			bestCosts.append(self.parents[0][1])
+			if era % 10 == 0:
+				print(era, self.parents[0][1])
 			self.randoms(self.size % int(self.size * 3 / 4))
 			self.parents = self.parents[:int(self.size * 3 / 4)] + self.ranoms[:];
 			self.parents = sorted(self.parents, key = lambda fit: fit[1]);
@@ -181,13 +152,23 @@ class Genetic(object):
 				i += 2
 			self.children = sorted(self.children, key = lambda fit: fit[1]);
 			self.parents = self.parents[:int(self.size/2)] + self.children[:int(self.size/2)];
-			if era % 10 == 0:
-				print(era) 
-		plt.semilogx(bestCosts)
-		plt.show()	
+			 
+		self.parents = sorted(self.parents, key = lambda fit: fit[1]);
+		bestCosts.append(self.parents[0][1])	
 			
-			
+		return bestCosts
 		
+	def test(self, M):
+		err = 0;
+
+		for i in range(self.testN):
+			output = self.computeOutput(M,self.testInputs[i])
+			for j in range(self.testK):
+				err += (output[j] - self.testOutputs[i][j]) ** 2
+		err /= (self.testN * self.testK)	
+		
+		return err
+
 if __name__ == "__main__":
 	
 	per = Genetic(20) 

@@ -8,71 +8,40 @@ import csv
 import matplotlib.pyplot as plt
 class DiffEvolution(object):
 
-	def __init__(self, size):
+	def __init__(self, size, _N, _K, _tN):
 		self.size = size
-		self.N = 0
-		self.K = 0
-		self.inputs  = []
-		self.outputs = []
+		
+		self.N 		= _N
+		self.K 		= _K
+		self.testN 	= _tN
+		self.testK  = _K
+		self.inputs  	 = []
+		self.outputs 	 = []
+		self.testInputs  = []
+		self.testOutputs = []
+		
 		self.parents = []
 		self.bestCost = 999999;
-		self.readFromFile()
-		self.reset_weights()
+		
 		self.c = 1;
 		
-	def readFromFile(self):
+	def setInputsOutputs(self, _inputs, _outputs):
+		self.inputs  = _inputs
+		self.outputs = _outputs
 
-		ifile = open('C:\\Users\\Edgar\\Desktop\\dyplomowa\\inputs.csv')
-		reader = csv.reader(ifile, delimiter = ',')
-		 
-		rownum = 0
-		for row in reader:
-		# Save header row.
-			if not rownum ==0:
-				colnum = 0
-				if colnum > 77:
-					break
-				for col in row:
-					if colnum > 77:
-						break
-					self.inputs[colnum].append([float(col)])
-					colnum += 1
-			else:
-				for col in row:
-					self.inputs.append([])	
-			rownum += 1
-		self.N = colnum;
-		self.K = rownum - 1;
+	
+	def setTestInputsOutputs(self,  _inputs, _outputs):
+		self.testInputs  = _inputs
+		self.testOutputs = _outputs
 		
-		ifile.close()
 		
-		ifile = open('C:\\Users\\Edgar\\Desktop\\dyplomowa\\outputs.csv')
-		reader = csv.reader(ifile, delimiter = ',')
-		 
-		rownum = 0
-		for row in reader:
-		# Save header row.
-			if not rownum ==0:
-				colnum = 0
-				for col in row:
-					if colnum > 77:
-						break
-					self.outputs[colnum].append([float(col)])
-					colnum += 1
-			else:
-				for col in row:
-					self.outputs.append([])	
-			rownum += 1
-		self.N = colnum;
-		self.K = rownum-1;
-		ifile.close()
-	def reset_weights(self):
+	def setWeights(self, population):
 		# Sets all weights to random values
 		for i in range(self.size):
-			p = np.random.uniform( low = -1.0, high = 1.0, size = (self.K, self.K) ) 
-			self.parents.append((p,self.fitness(p)))
+			self.parents.append((population[i],self.fitness(population[i])))
 			if self.parents[i][1] < self.bestCost:
 				self.bestCost = float(self.parents[i][1])
+		return self.bestCost
 	
 	def fitness(self, M):
 		err = 0;
@@ -92,13 +61,14 @@ class DiffEvolution(object):
 		return output
 		
 	
-	def crossover(self, x, y, k):
+	def crossover(self, dest, orig, k):
 		# Take two parents (x and y) and make two children by applying k-point
 		# crossover. Positions for crossover are chosen randomly.
-		for i in range(self.K**2):
-			if rnd.randint(0,100)/100 < k:
-				x[i] = y[i]
-		return x		
+		for i in range(self.K):
+			for j in range(self.K):
+				if rnd.randint(0,100)/100 < k:
+					dest[i][j] = orig[i][j]
+		return dest		
 			
 	def mutation(self, M, prob):
 			# Mutate (i.e. change) each bit in individual x with given probabipity.
@@ -133,11 +103,20 @@ class DiffEvolution(object):
 				while c == b or c == a or c == i:
 					c = np.random.randint(0,self.size)
 						 
-				V1 = np.asarray(self.parents[i][0]).ravel();
-				V  = np.asarray(self.parents[a][0] + 0.5 * ( self.parents[b][0] - self.parents[c][0])).ravel()
-				V3 = self.crossover(V.tolist(),V1.tolist(),0.6);
-				W1 = np.matrix(V3);
-				W1.resize(self.K,self.K);
+				V1 = self.parents[i][0];
+				V  = self.parents[a][0] + 0.9 * ( self.parents[b][0] - self.parents[c][0])
+				
+				for x in range(self.K):
+					for y in range(self.K):
+						if V[x][y] < -1 or V[x][y] > 1:
+							V[x][y] = math.sin(V[x][y])
+				W1 = self.crossover(V,V1,0.1);
+				#W1 = np.matrix(V3);
+				#W1.resize(self.K,self.K);
+				for x in range(self.K):
+					for y in range(self.K):
+						if W1[x][y] < -1 or W1[x][y] > 1:
+							W1[x][y] = math.sin(W1[x][y])
 				f = self.fitness(W1)
 				if f < self.parents[i][1]:
 					self.parents[i] = (W1, f)
@@ -155,18 +134,29 @@ class DiffEvolution(object):
 				print(era, self.bestCost)
 			self.c *= 1;
 			bestCosts.append(float(self.bestCost))
-		
+		'''
 		plt.semilogx(bestCosts)
 		plt.show()
-		
+		'''
 		self.parents = sorted(self.parents, key = lambda fit: fit[1]);
 			
+		return bestCosts
 			
-			
+	def test(self, M):
+		err = 0;
+
+		for i in range(self.testN):
+			output = self.computeOutput(M,self.testInputs[i])
+			for j in range(self.testK):
+				err += (output[j] - self.testOutputs[i][j]) ** 2
+		err /= (self.testN * self.testK)	
+		
+		return err
+
 		
 if __name__ == "__main__":
 	
-	per = DiffEvolution(10)
+	per = DiffEvolution(40)
 	#per.readFromFile()
 	#print(per.parents)
 	per.calc(400);
